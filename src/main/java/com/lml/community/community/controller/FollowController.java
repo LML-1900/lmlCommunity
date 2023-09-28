@@ -1,7 +1,9 @@
 package com.lml.community.community.controller;
 
+import com.lml.community.community.entity.Event;
 import com.lml.community.community.entity.Page;
 import com.lml.community.community.entity.User;
+import com.lml.community.community.event.EventProducer;
 import com.lml.community.community.service.FollowService;
 import com.lml.community.community.service.UserService;
 import com.lml.community.community.util.CommunityConstant;
@@ -25,17 +27,29 @@ public class FollowController implements CommunityConstant {
     private FollowService followService;
 
     @Autowired
-    private HostHolder hostHolderl;
+    private HostHolder hostHolder;
 
     @Autowired
     private UserService userService;
 
+    @Autowired
+    private EventProducer eventProducer;
+
     @RequestMapping(path = "/follow", method = RequestMethod.POST)
     @ResponseBody
     public String follow(int entityType, int entityId) {
-        User user = hostHolderl.getUser();
+        User user = hostHolder.getUser();
 
         followService.follow(user.getId(), entityType, entityId);
+
+        // 触发关注事件
+        Event event = new Event()
+                .setTopic(TOPIC_FOLLOW)
+                .setUserId(hostHolder.getUser().getId())
+                .setEntityType(entityType)
+                .setEntityId(entityId)
+                .setEntityUserId(entityId);
+        eventProducer.fireEvent(event);
 
         return CommunityUtil.getJsonString(0, "已关注");
     }
@@ -43,7 +57,7 @@ public class FollowController implements CommunityConstant {
     @RequestMapping(path = "/unfollow", method = RequestMethod.POST)
     @ResponseBody
     public String unfollow(int entityType, int entityId) {
-        User user = hostHolderl.getUser();
+        User user = hostHolder.getUser();
 
         followService.unfollow(user.getId(), entityType, entityId);
 
@@ -97,9 +111,9 @@ public class FollowController implements CommunityConstant {
     }
 
     private boolean hasFollowed(int userId) {
-        if (hostHolderl.getUser() == null) {
+        if (hostHolder.getUser() == null) {
             return false;
         }
-        return followService.hasFollowed(hostHolderl.getUser().getId(), ENTITY_TYPE_USER, userId);
+        return followService.hasFollowed(hostHolder.getUser().getId(), ENTITY_TYPE_USER, userId);
     }
 }
